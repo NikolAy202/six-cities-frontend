@@ -9,7 +9,7 @@ import Map from '../map/map';
 import SortingList from '../sorting-list/sorting-list';
 import Spinner from '../spinner/spinner';
 import { getCity, getSorting } from '../../store/site-process/selectors';
-import { getIsOffersLoading, selectOffers } from '../../store/site-data/selectors';
+import { getFavoriteOffers, getIsOffersLoading, selectOffers } from '../../store/site-data/selectors';
 import CardListEmpty from '../card-list-empty/card-list-empty';
 
 const CardList = (): JSX.Element => {
@@ -17,7 +17,13 @@ const CardList = (): JSX.Element => {
   const activeSorting = useAppSelector(getSorting);
   const activeCity = useAppSelector(getCity);
   const isOffersLoading = useAppSelector(getIsOffersLoading);
-  const offers = useAppSelector(selectOffers);
+  const offersUnFavorites = useAppSelector(selectOffers);
+  const favoriteOffers = useAppSelector(getFavoriteOffers).map((offer) => offer.id);
+  const offers = offersUnFavorites.map((offer) =>
+    favoriteOffers.includes(offer.id) ? {...offer, isFavorite: true} : {...offer, isFavorite: false}
+  );
+
+
   const [activeOffer, setActiveOffer] = useState<string | null>(null);
 
   const isEmpty = offers.length === 0;

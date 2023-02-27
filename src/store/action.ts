@@ -4,6 +4,12 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { UserAuth, User, Offer, Comment, CommentAuth, FavoriteAuth, UserRegister, NewOffer } from '../types/types';
 import { ApiRoute, AppRoute, HttpCode } from '../const';
 import { Token } from '../utils';
+import { adaptCreateCommentToServer, adaptOffersToServer, adaptUserToServer } from '../adapters/adaptersToServer';
+import { adaptOffersToClient, adaptOfferToClient, adaptReviewsToClient, adaptReviewToClient } from '../adapters/adaptersToClient';
+import OfferDto from '../dto/offer-dto/offers-dto.js';
+import UserDto from '../dto/user-dto/user-dto.js';
+import { AppDispatch } from '../types/state.js';
+import ReviewDto from '../dto/review-dto/review-dto.js';
 
 type Extra = {
   api: AxiosInstance;
@@ -22,28 +28,26 @@ export const Action = {
   POST_COMMENT: 'offer/post-comment',
   POST_FAVORITE: 'offer/post-favorite',
   DELETE_FAVORITE: 'offer/delete-favorite',
-  LOGIN_USER: 'user/login',
+  LOGIN_USER: 'users/login',
   LOGOUT_USER: 'user/logout',
   FETCH_USER_STATUS: 'user/fetch-status',
-  REGISTER_USER: 'user/register',
+  REGISTER_USER: 'users/register',
 };
 
 export const fetchOffers = createAsyncThunk<Offer[], undefined, { extra: Extra }>(
   Action.FETCH_OFFERS,
   async (_, { extra }) => {
     const { api } = extra;
-    const { data } = await api.get<Offer[]>(ApiRoute.Offers);
-
-    return data;
+    const { data } = await api.get<OfferDto[]>(ApiRoute.Offers);
+    return adaptOffersToClient(data);
   });
 
 export const fetchFavoriteOffers = createAsyncThunk<Offer[], undefined, { extra: Extra }>(
   Action.FETCH_FAVORITE_OFFERS,
   async (_, { extra }) => {
     const { api } = extra;
-    const { data } = await api.get<Offer[]>(ApiRoute.Favorite);
-
-    return data;
+    const { data } = await api.get<OfferDto[]>(ApiRoute.Favorite);
+    return adaptOffersToClient(data);
   });
 
 export const fetchOffer = createAsyncThunk<Offer, Offer['id'], { extra: Extra }>(
@@ -52,9 +56,9 @@ export const fetchOffer = createAsyncThunk<Offer, Offer['id'], { extra: Extra }>
     const { api, history } = extra;
 
     try {
-      const { data } = await api.get<Offer>(`${ApiRoute.Offers}/${id}`);
+      const { data } = await api.get<OfferDto>(`${ApiRoute.Offers}/${id}`);
 
-      return data;
+      return adaptOfferToClient(data);
     } catch (error) {
       const axiosError = error as AxiosError;
 
@@ -70,20 +74,20 @@ export const postOffer = createAsyncThunk<Offer, NewOffer, { extra: Extra }>(
   Action.POST_OFFER,
   async (newOffer, { extra }) => {
     const { api, history } = extra;
-    const { data } = await api.post<Offer>(ApiRoute.Offers, newOffer);
+    const {data} = await api.post<OfferDto>(ApiRoute.Offers, adaptOffersToServer(newOffer));
     history.push(`${AppRoute.Property}/${data.id}`);
 
-    return data;
+    return adaptOfferToClient(data);
   });
 
 export const editOffer = createAsyncThunk<Offer, Offer, { extra: Extra }>(
   Action.EDIT_OFFER,
   async (offer, { extra }) => {
     const { api, history } = extra;
-    const { data } = await api.patch<Offer>(`${ApiRoute.Offers}/${offer.id}`, offer);
+    const { data } = await api.patch<OfferDto>(`${ApiRoute.Offers}/${offer.id}`, adaptOffersToServer(offer));
     history.push(`${AppRoute.Property}/${data.id}`);
 
-    return data;
+    return adaptOfferToClient(data);
   });
 
 export const deleteOffer = createAsyncThunk<void, string, { extra: Extra }>(
@@ -98,28 +102,27 @@ export const fetchPremiumOffers = createAsyncThunk<Offer[], string, { extra: Ext
   Action.FETCH_PREMIUM_OFFERS,
   async (cityName, { extra }) => {
     const { api } = extra;
-    const { data } = await api.get<Offer[]>(`${ApiRoute.Premium}?city=${cityName}`);
+    const { data } = await api.get<OfferDto[]>(`${ApiRoute.Premium}/${cityName}`);
 
-    return data;
+    return adaptOffersToClient(data);
   });
 
 export const fetchComments = createAsyncThunk<Comment[], Offer['id'], { extra: Extra }>(
   Action.FETCH_COMMENTS,
   async (id, { extra }) => {
     const { api } = extra;
-    const { data } = await api.get<Comment[]>(`${ApiRoute.Offers}/${id}${ApiRoute.Comments}`);
+    const { data } = await api.get<ReviewDto[]>(`${ApiRoute.Offers}/${id}${ApiRoute.Comments}`);
 
-    return data;
+    return adaptReviewsToClient(data);
   });
 
-export const fetchUserStatus = createAsyncThunk<UserAuth['email'], undefined, { extra: Extra }>(
+export const fetchUserStatus = createAsyncThunk<string, undefined, { extra: Extra }>(
   Action.FETCH_USER_STATUS,
   async (_, { extra }) => {
     const { api } = extra;
 
     try {
-      const { data } = await api.get<User>(ApiRoute.Login);
-
+      const { data } = await api.get<UserDto>(ApiRoute.Login);
       return data.email;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -154,34 +157,34 @@ export const logoutUser = createAsyncThunk<void, undefined, { extra: Extra }>(
     Token.drop();
   });
 
-export const registerUser = createAsyncThunk<void, UserRegister, { extra: Extra }>(
+export const registerUser = createAsyncThunk<void, UserRegister, {dispatch: AppDispatch; extra: Extra }>(
   Action.REGISTER_USER,
   async ({ email, password, name, avatar, type }, { extra }) => {
     const { api, history } = extra;
-    const { data } = await api.post<{ id: string }>(ApiRoute.Register, {
+    const data = await api.post<UserDto>(ApiRoute.Register, adaptUserToServer({
       email,
       password,
       name,
       type,
-    });
-    if (avatar) {
+    }));
+    if (avatar?.name) {
       const payload = new FormData();
       payload.append('avatar', avatar);
-      await api.post(`/${data.id}${ApiRoute.Avatar}`, payload, {
+      const postAvatarApiRoute = `${ApiRoute.Users}${data.data.id}/avatar`;
+      await api.post(postAvatarApiRoute, payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
     history.push(AppRoute.Login);
   });
 
-
 export const postComment = createAsyncThunk<Comment, CommentAuth, { extra: Extra }>(
   Action.POST_COMMENT,
   async ({ id, comment, rating }, { extra }) => {
     const { api } = extra;
-    const { data } = await api.post<Comment>(`${ApiRoute.Offers}/${id}${ApiRoute.Comments}`, { comment, rating });
+    const { data } = await api.post<ReviewDto>(`${ApiRoute.Comments}/${id}`, adaptCreateCommentToServer({ comment, rating }));
 
-    return data;
+    return adaptReviewToClient(data);
   });
 
 export const postFavorite = createAsyncThunk<
@@ -192,11 +195,11 @@ export const postFavorite = createAsyncThunk<
   const { api, history } = extra;
 
   try {
-    const { data } = await api.post<Offer>(
+    const { data } = await api.post<OfferDto>(
       `${ApiRoute.Favorite}/${id}`
     );
 
-    return data;
+    return adaptOfferToClient(data);
   } catch (error) {
     const axiosError = error as AxiosError;
 
@@ -216,11 +219,11 @@ export const deleteFavorite = createAsyncThunk<
   const { api, history } = extra;
 
   try {
-    const { data } = await api.delete<Offer>(
+    const { data } = await api.post<OfferDto>(
       `${ApiRoute.Favorite}/${id}`
     );
 
-    return data;
+    return adaptOfferToClient(data);
   } catch (error) {
     const axiosError = error as AxiosError;
 

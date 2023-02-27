@@ -42,14 +42,15 @@ export enum AppRoute {
 }
 
 export enum ApiRoute {
-  Offers = '/offers',
-  Login = '/login',
-  Logout = '/logout',
-  Register = '/register',
+  Users = 'users/',
+  Offers = '/offers/',
+  Login = 'users/login',
+  Logout = 'users/logout',
+  Register = 'users/register',
   Avatar = '/avatar',
-  Comments = '/comments',
-  Favorite = '/favorites',
-  Premium = '/premium',
+  Comments = '/reviews',
+  Favorite = '/users/favorites',
+  Premium = 'offers/premium',
 }
 
 export enum AuthorizationStatus {

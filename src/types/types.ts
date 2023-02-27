@@ -14,11 +14,19 @@ export type City = {
   location: Location;
 };
 
-export type User = {
+export type Host = {
   name: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   type: UserType;
   email: string;
+};
+
+export type User = {
+  name: string;
+  avatarUrl?: string;
+  type: UserType;
+  email: string;
+  password: string
 };
 
 export type Comment = {
@@ -26,7 +34,7 @@ export type Comment = {
   comment: string;
   date: string;
   rating: number;
-  user: User;
+  user: Host;
 };
 
 export type Offer = {
@@ -43,7 +51,7 @@ export type Offer = {
   bedrooms: number;
   description: string;
   goods: string[];
-  host: User;
+  host: Host;
   images: string[];
   maxAdults: number;
 };
